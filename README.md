@@ -12,6 +12,8 @@ FAQ
 I am not creative
 ### How do I use this?
 It's trivial
+### Can I make a pull request that changes less than 10 chara-
+piss off
 
 Credits
 -------    
