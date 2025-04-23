@@ -4,47 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-    <title>Terminal Server Key Generator</title>
+    <title>LyssaRDSGen</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
         label { display: block; margin-top: 10px; font-weight: bold; }
         input[type="text"], input[type="number"] {
             width: 95%;
             max-width: 400px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
         }
         button {
             padding: 10px 15px;
             margin-top: 15px;
-            margin-right: 10px;
             cursor: pointer;
-            background-color: #007bff;
+            background-color: #005fbe;
             color: white;
             border: none;
-            border-radius: 6px;
         }
         button:disabled {
             background-color: #aaa;
             cursor: not-allowed;
         }
-        #output {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: monospace;
-        }
         .error { color: red; font-weight: bold; }
         .loading { font-style: italic; color: #555; }
-        hr { margin: 20px 0; }
     </style>
 </head>
 <body>
 
-    <h1>Terminal Server Key Generator</h1>
+    <h1>LyssaRDSGen</h1>
 
     <p>Enter the Product ID (PID) and optionally the License Key Pack (LKP) details.</p>
     
@@ -101,7 +86,7 @@
     <hr>
 
     <h2>Output:</h2>
-    <pre id="output">Enter details above and click one of the "Generate" buttons.</pre>
+    <pre><code id="output">Enter details above and click one of the "Generate" buttons.</code></pre>
 
     <script type="importmap">
         {
