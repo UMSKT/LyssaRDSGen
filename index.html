@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <title>Terminal Server Key Generator</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], input[type="number"] {
+            width: 95%;
+            max-width: 400px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button {
+            padding: 10px 15px;
+            margin-top: 15px;
+            margin-right: 10px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+        }
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+        }
+        .error { color: red; font-weight: bold; }
+        .loading { font-style: italic; color: #555; }
+        hr { margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>Terminal Server Key Generator</h1>
+
+    <p>Enter the Product ID (PID) and optionally the License Key Pack (LKP) details.</p>
+    
+    <form id="generateSpkFrm" action="javascript:void(0)">
+        <div>
+            <label for="pid">Product ID (PID):</label>
+            <input type="text" id="pid" placeholder="e.g., 00490-92005-99454-AT527" pattern="(\d{5}-\d{5}-\d{5}-[A-Z]{2}\d{3})|(\d{5}-OEM-\d{7}-\d{5})|(\d{5}-\d{3}-\d{7}-\d{5})" required>
+        </div>
+
+        <button type="submit" id="generateSpkBtn">Generate License Server ID (SPK)</button>
+    </form>
+
+    <hr>
+
+    <form id="generateLkpFrm" action="javascript:void(0)">
+        <h2>Generate License Key Pack (LKP)</h2>
+        <div>
+            <label for="count">License Count:</label>
+            <input type="number" id="count" placeholder="e.g., 1234" min="1" max="9999">
+        </div>
+        <div>
+            <label for="chidverselect">License Version and Type:</label>
+            <select id="chidverselect">
+                <option value="001_5_0">Windows 2000 Per Device</option>
+                <option value="002_5_0">Windows 2000 Internet Connector</option>
+                <option value="003_5_2">Windows Server 2003 Per User</option>
+                <option value="004_5_2">Windows Server 2003 Per Device</option>
+                <option value="005_6_0">Windows Server 2008 (R2) Per Device</option>
+                <option value="006_6_0">Windows Server 2008 (R2) Per User</option>
+                <option value="009_6_0">Windows Server 2008 (R2) VDI Standard </option>
+                <option value="010_6_0">Windows Server 2008 (R2) VDI Premium </option>
+                <option value="016_6_0">Windows Server 2008 (R2) VDI Suite </option>
+                <option value="011_6_2">Windows Server 2012 (R2) Per Device</option>
+                <option value="012_6_2">Windows Server 2012 (R2) Per User</option>
+                <option value="015_6_2">Windows Server 2012 (R2) VDI Suite </option>
+                <option value="020_10_0">Windows Server 2016 Per Device</option>
+                <option value="021_10_0">Windows Server 2016 Per User</option>
+                <option value="022_10_0">Windows Server 2016 VDI Suite </option>
+                <option value="026_10_1">Windows Server 2019 Per Device</option>
+                <option value="027_10_1">Windows Server 2019 Per User</option>
+                <option value="028_10_1">Windows Server 2019 VDI Suite </option>
+                <option value="029_10_2">Windows Server 2022 Per Device</option>
+                <option value="030_10_2">Windows Server 2022 Per User</option>
+                <option value="031_10_2">Windows Server 2022 VDI Suite </option>
+                <option value="032_10_3">Windows Server 2025 Per Device</option>
+                <option value="033_10_3">Windows Server 2025 Per User</option>
+                <option value="034_10_3">Windows Server 2025 VDI Suite </option>
+            </select>
+        </div>
+        
+        <button type="submit" id="generateLkpBtn">Generate License Key Pack (LKP)</button>
+    </form>
+
+    <hr>
+
+    <h2>Output:</h2>
+    <pre id="output">Enter details above and click one of the "Generate" buttons.</pre>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "js-md5": "https://esm.sh/js-md5@0.8.3",
+                "curves/": "https://esm.sh/@noble/curves@1.8.2/",
+                "hashes/": "https://esm.sh/@noble/hashes@1.8.0/"
+            }
+        }
+    </script>
+    
+    <script type="module" src="script.js" defer></script>
+
+</body>
+</html>
