@@ -63,6 +63,8 @@ function encodePkey(n) {
         currentN = currentN / 24n;
     }
 
+    out = out.padStart(35, KCHARS[0]);
+
     const segments = [];
     for (let i = 0; i < out.length; i += 5) {
         segments.push(out.substring(i, i + 5));
