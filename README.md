@@ -11,7 +11,7 @@ The website can be accessed at the following address:
 
 ## Technical Basis
 
-This project leverages foundational research conducted by [WitherOrNot](https://github.com/WitherOrNot), based on which he developed a PoC CLI tool in Python (which can be found in their [GitHub gist](https://gist.github.com/WitherOrNot/c34c4c7b893e89ab849ce04e007d89a9)). 
+This project leverages foundational research conducted by [WitherOrNot](https://github.com/WitherOrNot), based on which he developed a PoC CLI tool in Python (which can be found in his [GitHub gist](https://gist.github.com/WitherOrNot/c34c4c7b893e89ab849ce04e007d89a9)). 
 
 ## Acknowledgements
 
