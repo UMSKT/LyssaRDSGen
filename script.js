@@ -13,7 +13,9 @@ import {
 import {
     randomBytes
 } from 'hashes/utils'
-import { md5 } from 'js-md5'
+import {
+    md5
+} from 'js-md5'
 
 const KCHARS = "BCDFGHJKMPQRTVWXY2346789";
 
@@ -75,11 +77,11 @@ function encodePkey(n) {
 
 function decodePkey(k) {
     const keyString = k.replaceAll("-", "");
-    
+
     if (keyString.length % 5 !== 0) {
         throw new Error("Bad length");
     }
-    
+
     let out = 0n;
 
     for (const char of keyString) {
@@ -205,12 +207,12 @@ function generateRandomBigInt(min, max) {
     do {
         if (attempts++ > 100) throw new Error("lmao");
 
-        const randomBytes = new Uint8Array(bytesNeeded);
-        crypto.getRandomValues(randomBytes);
+        const randomBytesArr = new Uint8Array(bytesNeeded);
+        crypto.getRandomValues(randomBytesArr);
 
         let tempValue = 0n;
-        for (let i = 0; i < randomBytes.length; i++) {
-            tempValue = (tempValue << 8n) + BigInt(randomBytes[i]);
+        for (let i = 0; i < randomBytesArr.length; i++) {
+            tempValue = (tempValue << 8n) + BigInt(randomBytesArr[i]);
         }
 
         const mask = bitsNeeded === 0n ? 0n : (1n << bitsNeeded) - 1n;
@@ -309,9 +311,9 @@ try {
     console.log("ECC Curves initialized");
 } catch (error) {
     console.error("Could not initialize ECC curves", error);
-
     document.getElementById('generateSpkBtn').disabled = true;
     document.getElementById('generateLkpBtn').disabled = true;
+    document.getElementById('generateConfBtn').disabled = true;
     document.getElementById('output').textContent = `Error initializing cryptography: ${error.message}`;
 }
 
@@ -335,16 +337,16 @@ function getSpkid(pid) {
 async function validateTskey(pid, tskey, isSpk = true) {
     try {
         const keydataInt = decodePkey(tskey);
-
-        const keydataBytes = bigIntToBytesLE(keydataInt, 21n);
+        const keydataBytes = bigIntToBytesLE(keydataInt, 20);
 
         const pidBytesUtf16le = utf16leEncoder.encode(pid);
         const md5Digest = await md5Hash(pidBytesUtf16le);
-        const rk = concatBytes(md5Digest.slice(0, 5), new Uint8Array(11));
+        const rk = new Uint8Array(16);
+        rk.set(md5Digest.slice(0, 5));
 
         const dc_kdata = rc4(rk, keydataBytes);
 
-        if (dc_kdata.length < 21) {
+        if (dc_kdata.length < 20) {
             console.error("insufficient data length:", dc_kdata.length);
             return false;
         }
@@ -408,9 +410,7 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
     const curveData = isSpk ? spkCurveData : lkpCurveData;
     if (!curveData) throw new Error("Curve data not initialized");
     const {
-        E,
-        G,
-        K
+        E
     } = curveData;
     const privKey = params.priv;
 
@@ -420,21 +420,18 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
 
     const pidBytesUtf16le = utf16leEncoder.encode(pid);
     const md5Digest = await md5Hash(pidBytesUtf16le);
-    const rk = concatBytes(md5Digest.slice(0, 5), new Uint8Array(11));
+    const rk = new Uint8Array(16);
+    rk.set(md5Digest.slice(0, 5));
 
     let attempts = 0;
     const maxAttempts = 1000;
-
-    // if (typeof E.n !== 'bigint') {
-    //     throw new Error("test");
-    // }
 
     while (attempts < maxAttempts) {
         attempts++;
 
         const c_nonce = generateRandomBigInt(1n, E.n);
 
-        const R = G.multiply(c_nonce);
+        const R = spkCurveData.G.multiply(c_nonce);
         const R_affine = R.toAffine();
 
         const RxBytes = bigIntToBytesLE(R_affine.x, 48n);
@@ -451,31 +448,26 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
         const s = mod(c_nonce - (privKey * h), E.n);
 
         const s_masked = s & 0x1FFFFFFFFFFFFFFFFFn;
-
-        if (s_masked !== s || s_masked >= 0x1FFFFFFFFFFFFFFFFFn) {
-            continue;
-        }
+        if (s_masked !== s || s_masked >= 0x1FFFFFFFFFFFFFFFFFn) continue;
 
         const h_masked = h & 0x7FFFFFFFFn;
         const sigdata = (s_masked << 35n) | h_masked;
-        const sigdataBytes = bigIntToBytesLE(sigdata, 14n);
+        const sigdataBytes = bigIntToBytesLE(sigdata, 13n); // Signature is 104 bits = 13 bytes
 
         const pkdata = concatBytes(keydata_inner, sigdataBytes);
-        if (pkdata.length !== 21) {
-            console.error("pkdata not 21 bytes long:", pkdata.length);
+        if (pkdata.length !== 20) { // 7 + 13 = 20
+            console.error("pkdata not 20 bytes long:", pkdata.length);
             continue;
         }
 
         const pke = rc4(rk, pkdata);
-
-        const pk = bytesToBigIntLE(pke.slice(0, 20));
+        const pk = bytesToBigIntLE(pke);
         const pkstr = encodePkey(pk);
 
         if (await validateTskey(pid, pkstr, isSpk)) {
             return pkstr;
         } else {
             console.warn(`Generated key ${pkstr} failed validation, retrying...`);
-
         }
     }
 
@@ -492,7 +484,6 @@ async function generateSpk(pid) {
 }
 
 async function generateLkp(pid, countInput, majorVerInput, minorVerInput, chidInput) {
-
     const count = BigInt(countInput);
     const majorVer = Number(majorVerInput);
     const minorVer = Number(minorVerInput);
@@ -519,6 +510,76 @@ async function generateLkp(pid, countInput, majorVerInput, minorVerInput, chidIn
     return await generateTsKey(pid, lkpdata, false);
 }
 
+// ---- NEW FUNCTIONS FOR CONFIRMATION NUMBER ----
+
+/**
+ * Generates the RC4 key from a PID string, matching the lkplite.dll implementation.
+ * @param {string} pid The Product ID string.
+ * @returns {Promise<Uint8Array>} A 16-byte RC4 key.
+ */
+async function getRc4KeyFromPid(pid) {
+    const pidBytesUtf16le = utf16leEncoder.encode(pid);
+    const md5Digest = await md5Hash(pidBytesUtf16le);
+    const key = new Uint8Array(16);
+    key.set(md5Digest.slice(0, 5)); // The rest of the 16 bytes will be 0
+    return key;
+}
+
+/**
+ * Encodes a BigInt into a Base24 string with specified padding.
+ * @param {bigint} n The number to encode.
+ * @param {number} padLength The desired output string length.
+ * @returns {string} The Base24 encoded string.
+ */
+function base24Encode(n, padLength) {
+    if (typeof n !== 'bigint') throw new TypeError("n must be bigint");
+    if (n < 0n) throw new Error("n is negative");
+    if (n === 0n) return KCHARS[0].repeat(padLength);
+
+    let out = "";
+    let currentN = n;
+
+    while (currentN > 0n) {
+        const remainder = Number(currentN % 24n);
+        out = KCHARS[remainder] + out;
+        currentN = currentN / 24n;
+    }
+
+    return out.padStart(padLength, KCHARS[0]);
+}
+
+/**
+ * Generates a Confirmation Number from a License Server ID (SPK) and Product ID (PID).
+ * This function ports the logic from LKPLiteGenConfNumber.
+ * @param {string} lsid The Base24-encoded License Server ID (SPK).
+ * @param {string} pid The Product ID.
+ * @returns {Promise<string>} The generated 7-character Confirmation Number.
+ */
+async function generateConfirmationNumber(lsid, pid) {
+    // 1. Decode the Base24 LSID string into a 20-byte array.
+    const decodedLsidBigInt = decodePkey(lsid);
+    const decodedLsidBytes = bigIntToBytesLE(decodedLsidBigInt, 20);
+
+    // 2. Take the first 4 bytes (DWORD) of the decoded data.
+    let confirmationBytes = decodedLsidBytes.slice(0, 4);
+
+    // 3. Encrypt these 4 bytes using RC4 with a key derived from the PID.
+    const rc4Key = await getRc4KeyFromPid(pid);
+    const encryptedBytes = rc4(rc4Key, confirmationBytes);
+
+    // 4. Encode the 4 encrypted bytes into a 7-character Base24 string.
+    const encryptedBigInt = bytesToBigIntLE(encryptedBytes);
+    // 4 bytes = 32 bits. log24(2^32) ≈ 6.97, so 7 characters are required.
+    const confirmationNumberRaw = base24Encode(encryptedBigInt, 7);
+
+    return confirmationNumberRaw;
+}
+
+// ---- END OF NEW FUNCTIONS ----
+
+
+// ---- DOM Element and Event Listener Setup ----
+
 const pidInput = document.getElementById('pid');
 const countInput = document.getElementById('count');
 const chidVerInput = document.getElementById('chidverselect');
@@ -527,6 +588,11 @@ const generateLkpBtn = document.getElementById('generateLkpBtn');
 const generateSpkFrm = document.getElementById('generateSpkFrm');
 const generateLkpFrm = document.getElementById('generateLkpFrm');
 const outputPre = document.getElementById('output');
+// New elements for Confirmation Number
+const lsidInput = document.getElementById('lsid');
+const generateConfBtn = document.getElementById('generateConfBtn');
+const generateConfFrm = document.getElementById('generateConfFrm');
+
 
 function setLoading(button, isLoading) {
     if (isLoading) {
@@ -537,9 +603,10 @@ function setLoading(button, isLoading) {
         outputPre.classList.add('loading');
     } else {
         button.disabled = false;
-
+        // Update button text based on its ID
         if (button.id === 'generateSpkBtn') button.textContent = 'Generate License Server ID (SPK)';
         if (button.id === 'generateLkpBtn') button.textContent = 'Generate License Key Pack (LKP)';
+        if (button.id === 'generateConfBtn') button.textContent = 'Generate Confirmation Number';
         outputPre.classList.remove('loading');
     }
 }
@@ -583,7 +650,6 @@ generateLkpFrm.addEventListener('submit', async () => {
 
     if (!/^\d{5}-\d{5}-\d{5}-[A-Z]{2}\d{3}$/i.test(pid) && !/^\d{5}-OEM-\d{7}-\d{5}$/i.test(pid) && !/^\d{5}-\d{3}-\d{7}-\d{5}$/i.test(pid)) {
         console.warn("PID format doesn't strictly match common patterns, but attempting anyway:", pid);
-
     }
 
     const chidVerMatch = chidVerStr.match(/^(\d+)_(\d+)_(\d+)$/);
@@ -626,5 +692,39 @@ generateLkpFrm.addEventListener('submit', async () => {
         setLoading(generateLkpBtn, false);
     }
 });
+
+// New event listener for the Confirmation Number form
+generateConfFrm.addEventListener('submit', async () => {
+    const pid = pidInput.value.trim();
+    const lsid = lsidInput.value.trim();
+
+    if (!pid || !lsid) {
+        outputPre.textContent = 'Error: Both Product ID (PID) and License Server ID (SPK) are required.';
+        outputPre.classList.add('error');
+        return;
+    }
+
+    if (!/^([BCDFGHJKMPQRTVWXY2346789]{5}-){6}[BCDFGHJKMPQRTVWXY2346789]{5}$/i.test(lsid)) {
+        console.warn("LSID/SPK format doesn't strictly match expected pattern, but attempting anyway:", lsid);
+    }
+
+    if (!/^\d{5}-\d{5}-\d{5}-[A-Z]{2}\d{3}$/i.test(pid) && !/^\d{5}-OEM-\d{7}-\d{5}$/i.test(pid) && !/^\d{5}-\d{3}-\d{7}-\d{5}$/i.test(pid)) {
+        console.warn("PID format doesn't strictly match common patterns, but attempting anyway:", pid);
+    }
+
+    setLoading(generateConfBtn, true);
+    try {
+        const confNum = await generateConfirmationNumber(lsid, pid);
+        outputPre.textContent = `Confirmation Number:\n${confNum}`;
+        outputPre.classList.remove('error');
+    } catch (error) {
+        console.error("Confirmation Number Generation Error:", error);
+        outputPre.textContent = `Error generating Confirmation Number: ${error.message}`;
+        outputPre.classList.add('error');
+    } finally {
+        setLoading(generateConfBtn, false);
+    }
+});
+
 
 outputPre.textContent = 'Enter details above and click one of the "Generate" buttons.';
