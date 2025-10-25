@@ -334,15 +334,25 @@ function getSpkid(pid) {
     return BigInt(spkidNum);
 }
 
+/**
+ * Generates the RC4 key from a PID string, matching the lkplite.dll implementation.
+ * @param {string} pid The Product ID string.
+ * @returns {Promise<Uint8Array>} A 16-byte RC4 key.
+ */
+async function getRc4KeyFromPid(pid) {
+    const pidBytesUtf16le = utf16leEncoder.encode(pid);
+    const md5Digest = await md5Hash(pidBytesUtf16le);
+    const key = new Uint8Array(16);
+    key.set(md5Digest.slice(0, 5)); // The rest of the 16 bytes will be 0
+    return key;
+}
+
 async function validateTskey(pid, tskey, isSpk = true) {
     try {
         const keydataInt = decodePkey(tskey);
         const keydataBytes = bigIntToBytesLE(keydataInt, 20);
 
-        const pidBytesUtf16le = utf16leEncoder.encode(pid);
-        const md5Digest = await md5Hash(pidBytesUtf16le);
-        const rk = new Uint8Array(16);
-        rk.set(md5Digest.slice(0, 5));
+        const rk = await getRc4KeyFromPid(pid);
 
         const dc_kdata = rc4(rk, keydataBytes);
 
@@ -410,7 +420,9 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
     const curveData = isSpk ? spkCurveData : lkpCurveData;
     if (!curveData) throw new Error("Curve data not initialized");
     const {
-        E
+        E,
+        G, // <-- FIX: Destructure G from the correct curveData
+        K
     } = curveData;
     const privKey = params.priv;
 
@@ -418,10 +430,7 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
         throw new Error("keydata_inner must be 7 bytes or uint8array");
     }
 
-    const pidBytesUtf16le = utf16leEncoder.encode(pid);
-    const md5Digest = await md5Hash(pidBytesUtf16le);
-    const rk = new Uint8Array(16);
-    rk.set(md5Digest.slice(0, 5));
+    const rk = await getRc4KeyFromPid(pid); // <-- Refactored key derivation
 
     let attempts = 0;
     const maxAttempts = 1000;
@@ -431,7 +440,7 @@ async function generateTsKey(pid, keydata_inner, isSpk = true) {
 
         const c_nonce = generateRandomBigInt(1n, E.n);
 
-        const R = spkCurveData.G.multiply(c_nonce);
+        const R = G.multiply(c_nonce); // <-- FIX APPLIED: Use the correct G point
         const R_affine = R.toAffine();
 
         const RxBytes = bigIntToBytesLE(R_affine.x, 48n);
@@ -508,21 +517,6 @@ async function generateLkp(pid, countInput, majorVerInput, minorVerInput, chidIn
     if (lkpdata.length !== 7) throw new Error("LKP Info did not convert to 7 bytes");
 
     return await generateTsKey(pid, lkpdata, false);
-}
-
-// ---- NEW FUNCTIONS FOR CONFIRMATION NUMBER ----
-
-/**
- * Generates the RC4 key from a PID string, matching the lkplite.dll implementation.
- * @param {string} pid The Product ID string.
- * @returns {Promise<Uint8Array>} A 16-byte RC4 key.
- */
-async function getRc4KeyFromPid(pid) {
-    const pidBytesUtf16le = utf16leEncoder.encode(pid);
-    const md5Digest = await md5Hash(pidBytesUtf16le);
-    const key = new Uint8Array(16);
-    key.set(md5Digest.slice(0, 5)); // The rest of the 16 bytes will be 0
-    return key;
 }
 
 /**
