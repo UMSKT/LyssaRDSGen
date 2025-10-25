@@ -72,10 +72,24 @@
         <button type="submit" id="generateLkpBtn">Generate License Key Pack (LKP)</button>
     </form>
 
-    <hr>
+<hr>
 
-    <h2>Output:</h2>
-    <pre><code id="output">Enter details above and click one of the "Generate" buttons.</code></pre>
+<form id="generateConfFrm" action="javascript:void(0)">
+    <h2>Generate Confirmation Number</h2>
+    <p>Requires the PID from above and a generated License Server ID (SPK).</p>
+    <div>
+        <label for="lsid">License Server ID (SPK):</label>
+        <input type="text" id="lsid" placeholder="e.g., BCDFG-HJKMP-QRTVW-XY234-6789B-CDFGH-JKMPQ" pattern="([BCDFGHJKMPQRTVWXY2346789]{5}-){6}[BCDFGHJKMPQRTVWXY2346789]{5}" required>
+    </div>
+    
+    <button type="submit" id="generateConfBtn">Generate Confirmation Number</button>
+</form>
+<!-- END OF NEW SECTION -->
+
+<hr>
+
+<h2>Output:</h2>
+<pre><code id="output">Enter details above and click one of the "Generate" buttons.</code></pre>
 
     <script type="importmap">
         {
